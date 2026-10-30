@@ -1,0 +1,9 @@
+{
+  "title": "The Maze That Solves Itself: cells that only see their neighbours find the way out",
+  "date": "2026-10-30",
+  "description": "No tile can see the whole maze. Each one only checks the four tiles touching it and says: I am one step further than my closest neighbour. A wave floods out, the maze rises into a staircase, and the way out is just 'walk downhill'. Smash it and it heals.",
+  "credit": {
+    "handle": "@mayalen_etc",
+    "url": "https://x.com/mayalen_etc/status/2105701039148323258"
+  }
+}

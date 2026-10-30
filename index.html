@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Interesting X · The Maze That Solves Itself: cells that only see their neighbours find the way out</title>
+    <meta name="description" content="No tile can see the whole maze. Each one only checks the four tiles touching it and says: I am one step further than my closest neighbour. A wave floods out, the maze rises into a staircase, and the way out is just 'walk downhill'. Smash it and it heals." />
+    <meta name="theme-color" content="#0b1322" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1322'/%3E%3Crect x='5' y='5' width='22' height='22' rx='3' fill='%23ebe2cc'/%3E%3Crect x='7' y='19' width='6' height='6' fill='%231f6f78'/%3E%3Crect x='13' y='13' width='6' height='6' fill='%23c8962e'/%3E%3Crect x='19' y='7' width='6' height='6' fill='%23e07b2a'/%3E%3Cpath d='M22 10 L16 16 L10 22' stroke='%23a6e22e' stroke-width='2' fill='none'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage"></div>
+      <svg id="leaders" aria-hidden="true"></svg>
+      <div id="labels" aria-hidden="true"></div>
+      <div id="fade" aria-hidden="true"></div>
+
+      <header class="intro" id="intro">
+        <h1>The Maze That Solves Itself</h1>
+        <p class="sub">cells that only see their neighbours find the way out</p>
+        <div class="hint-row">
+          <p class="hint" id="hint">Press <b>Play</b>. Tap a <b>wall</b> to move it; <span class="dbl-mouse">double-click</span><span class="dbl-touch">double-tap</span> a tile to smash there.</p>
+          <div class="top-btns">
+            <button class="btn chip numbers-btn" id="btn-numbers" type="button" aria-controls="numbers" aria-expanded="false">Numbers</button>
+            <button class="help" id="btn-help" type="button" aria-controls="explain" aria-expanded="false" aria-label="What am I looking at?"><i aria-hidden="true">?</i><span>What am I looking at?</span></button>
+          </div>
+        </div>
+      </header>
+
+      <div class="badge" id="badge" hidden>simple mode (no WebGL)</div>
+
+      <section class="panel dock collapsed-phone" id="dock" aria-label="Controls">
+        <button class="sheet-handle" id="btn-sheet" type="button" aria-controls="dock" aria-expanded="false"><i aria-hidden="true"></i><span id="sheet-label">More controls</span></button>
+        <p class="caption" id="caption" aria-live="polite"><i class="dot" aria-hidden="true"></i><span id="caption-text">576 tiles, each seeing only its neighbours.</span></p>
+
+        <div class="btn-row main-row">
+          <button id="btn-play" class="btn primary" type="button" title="Let every tile keep applying its rule">Play</button>
+          <button id="btn-step" class="btn" type="button" title="Advance exactly one tick: every awake tile updates once">One tick</button>
+        </div>
+        <div class="btn-row smash-row">
+          <button id="btn-smash" class="btn" type="button" title="Scramble a 5 × 5 patch of tiles to wrong numbers and watch them repair">Smash a patch</button>
+          <button id="btn-smash-undo" class="btn dim" type="button" title="Put the smashed numbers back as they were">Undo smash</button>
+        </div>
+
+        <label class="ctl wake-ctl">
+          <span class="ctl-row"><span class="cap">Cells awake per tick <span class="tag">p</span></span><span class="mono val" id="wake-val">50%</span></span>
+          <input id="wake" type="range" min="10" max="100" step="5" value="50" aria-label="Cells awake per tick: the chance each tile wakes up and updates on a tick, 10% to 100%" />
+          <span class="desc" id="wake-desc">Each tick a random half of the tiles wake and update; the rest doze. News travels about 1 tile every 2 ticks.</span>
+        </label>
+
+        <label class="check"><input id="show-numbers" type="checkbox" /><span><span class="cap">Show numbers on tiles</span><span class="desc">Each tile's guess of how many steps it is from the pin.</span></span></label>
+
+        <div class="btn-row">
+          <button id="btn-newmaze" class="btn" type="button" title="Grow a different random maze">New maze</button>
+          <button id="btn-maze-back" class="btn dim" type="button" title="Back to the example maze">Back to the example maze</button>
+        </div>
+        <div class="btn-row" id="walls-row">
+          <button id="btn-walls-back" class="btn" type="button" title="Undo every wall you moved" hidden>Put the walls back</button>
+        </div>
+        <div class="btn-row">
+          <button id="btn-reset" class="btn" type="button" title="Restore everything: maze, walls, numbers, settings, view">Reset to example</button>
+          <button id="btn-advanced" class="btn" type="button" aria-expanded="false" aria-controls="adv">More</button>
+        </div>
+      </section>
+
+      <aside class="panel adv" id="adv" hidden aria-label="More">
+        <div class="adv-head">
+          <span class="cap">More, for the curious</span>
+          <button class="x" id="btn-adv-close" type="button" aria-label="Close">×</button>
+        </div>
+        <p class="desc honest"><b>Honesty note:</b> the paper's cells learn their rule with a neural network. Here the rule is written by hand so you can see it working; the learned rules end up doing something like it.</p>
+        <label class="ctl">
+          <span class="ctl-row"><span class="cap">Board size <span class="tag">n × n</span></span><span class="mono val" id="size-val">24 × 24</span></span>
+          <select id="size" aria-label="Board size">
+            <option value="12">12 × 12 (144 tiles)</option>
+            <option value="24" selected>24 × 24 (576 tiles)</option>
+            <option value="48">48 × 48 (2,304 tiles)</option>
+            <option value="64">64 × 64 (4,096 tiles)</option>
+          </select>
+          <span class="desc">Same rule, any size: the paper's NCAs also kept working on boards bigger than they were trained on.</span>
+        </label>
+        <label class="ctl">
+          <span class="ctl-row"><span class="cap">Add shortcuts <span class="tag">k</span></span><span class="mono val" id="shortcuts-val">0</span></span>
+          <input id="shortcuts" type="range" min="0" max="20" step="1" value="0" aria-label="Add shortcuts: knock out 0 to 20 extra walls to make loops" />
+          <span class="desc" id="shortcuts-desc">Knock out extra walls. The maze gets loops and several routes; min + 1 still finds the shortest.</span>
+        </label>
+        <div class="ctl">
+          <button id="btn-sync" class="btn" type="button" aria-pressed="false" title="Every tile updates on every tick (synchronous)">Everyone wakes together</button>
+          <span class="desc">Synchronous: all tiles update at once, so the wave moves exactly one tile per tick. Off (asynchronous: cells wake up at random moments), it's slower and ragged, yet the numbers come out the same.</span>
+        </div>
+        <label class="check"><input id="show-cone" type="checkbox" /><span><span class="cap">Show how far news can travel</span><span class="desc">Brass outline: every tile within t steps of the pin after t ticks (the "light cone"). The wave can never get ahead of it.</span></span></label>
+        <p class="desc" id="adv-maths">Each tile computes d ← 1 + min over open neighbours (Bellman–Ford relaxation, run as a cellular automaton). From all-"don't know" with everyone awake it is exact after max-distance ticks. A number ≥ n² is impossible, so it means "don't know": that's how cut-off tiles, which first count up, finally give up (the "count to infinity" problem of early internet routing).</p>
+      </aside>
+
+      <section class="numbers" id="numbers" aria-label="The numbers">
+        <div class="card" id="card">
+          <div class="card-title">The numbers</div>
+          <div class="row"><span class="k">Ticks so far</span><b class="mono" id="n-ticks">0</b><span class="m" id="n-ticks-m">one tick = every awake tile applies its rule once</span></div>
+          <div class="row"><span class="k">Tiles that know their distance</span><b class="mono" id="n-reached">1 of 576</b></div>
+          <div class="row"><span class="k">Shortest way out</span><b class="mono" id="n-route">not found yet</b><span class="m" id="n-route-m">read from the flag's own number</span></div>
+          <div class="row"><span class="k">Tiles still wrong</span><b class="mono" id="n-wrong">575</b><span class="m">checked against an exact breadth-first search (BFS), used only as a referee</span></div>
+          <div class="row"><span class="k">Cells awake per tick</span><b class="mono" id="n-wake">50%</b><span class="m" id="n-wake-m">so news travels about 1 tile every 2 ticks</span></div>
+          <div class="row" id="row-heal" hidden><span class="k">After the smash</span><b class="mono" id="n-heal">—</b></div>
+        </div>
+      </section>
+
+      <section class="panel explain-card" id="explain" role="dialog" aria-labelledby="explain-title" hidden>
+        <div class="explain-head">
+          <h2 id="explain-title">A maze that solves itself</h2>
+          <button class="x" id="btn-explain-x" type="button" aria-label="Close explanation">×</button>
+        </div>
+        <p><b>What you're looking at:</b> Every tile is a tiny machine that can only see the four tiles touching it. Each one keeps a single number: how many steps it thinks it is from the brass pin. Tiles rise to the height of their number.</p>
+        <p><b>Why it matters:</b> A new Google paper asks whether real reasoning can come from cells that only talk to their neighbours, with no one in charge. They train a small neural network to be the rule every cell follows (a neural cellular automaton) and it learns to solve mazes and Sudoku, survives damage and works on bigger boards. Here the rule is written by hand so you can watch it: my number is one more than my smallest neighbour's. A wave floods out, the maze becomes a staircase, and the way out is simply 'keep stepping downhill'.</p>
+        <p class="honest-note">Honesty note: the paper's cells learn their rule with a neural network. Here the rule is written by hand so you can see it working; the learned rules end up doing something like it.</p>
+        <p class="try"><span>How to use it</span></p>
+        <ol class="try-steps">
+          <li>Press <b>Play</b>: watch the numbers spread from the pin and the tiles climb into a staircase.</li>
+          <li>When the wave reaches the flag, a lime trail walks downhill to the pin and the marble rolls home.</li>
+          <li>Drag <b>Cells awake per tick</b>: fewer awake cells, slower and more ragged wave, same answer.</li>
+          <li>Press <b>Smash a patch</b>, then watch the tiles fix themselves. <b>Undo smash</b> puts them back.</li>
+          <li>Tap a <b>wall</b> to move it and watch the staircase reshape. <b>Reset to example</b> puts everything back.</li>
+        </ol>
+        <div class="explain-foot"><button class="btn primary" id="btn-explain-ok" type="button">Got it</button></div>
+      </section>
+
+      <footer class="credit credit-foot">
+        <span class="lead">Inspired by </span><a href="https://x.com/mayalen_etc/status/2105701039148323258" target="_blank" rel="noopener">@mayalen_etc</a><span class="wide"> ·
+        <a href="https://arxiv.org/abs/2609.36126" target="_blank" rel="noopener">Reasoning with NCA (paper)</a> ·
+        <a href="https://distill.pub/2020/growing-ca/" target="_blank" rel="noopener">Growing NCA</a></span>
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
